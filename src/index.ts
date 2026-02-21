@@ -2,6 +2,8 @@ import { OrganizeImportsMode } from "typescript";
 import {WebSocketServer, WebSocket} from "ws"
 import dotenv from "dotenv";
 import crypto from "crypto";
+import { insertMessage } from "./repos/messageRepo";
+import { ensureRoom } from "./repos/messageRepo";
 
 dotenv.config();
 
@@ -98,6 +100,7 @@ wss.on("connection",function(socket){
               sck[roomId] = [];
               // first user in this container → subscribe Redis
               await sub.subscribe(roomId);
+              ensureRoom(roomId).catch(console.error);
             }
             sck[roomId].push(socket);
         }
@@ -116,6 +119,9 @@ wss.on("connection",function(socket){
                 senderConnectionId: (socket as any).connectionId
               })
             );
+
+            // async DB write (do not block realtime)
+            insertMessage(roomId, (socket as any).connectionId, message).catch(console.error);
         }
     })
 

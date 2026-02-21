@@ -1,0 +1,12 @@
+CREATE TABLE IF NOT EXISTS rooms (
+  id TEXT PRIMARY KEY,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+  id BIGSERIAL PRIMARY KEY,
+  room_id TEXT REFERENCES rooms(id) ON DELETE CASCADE,
+  connection_id TEXT,
+  message TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
