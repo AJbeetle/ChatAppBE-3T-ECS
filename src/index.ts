@@ -102,22 +102,8 @@ wss.on("connection",function(socket){
             sck[roomId].push(socket);
         }
         else if(userMessage.type == "chat"){
-            /*
-            let roomId = userMessage.payload.roomId as string;
-            let arr:WebSocket[] = sck[roomId];
-            // console.log(arr);
-            
-            arr.forEach((childSocket)=>{
-                if(!(childSocket==socket)){
-                    if(!userMessage.payload?.message){
-                        return;
-                    }
-                    childSocket.send(userMessage.payload?.message);
-                }
-            })
-                */
 
-// Now, server doesn't broadcast directly redis will publish
+            // Server doesn't broadcast directly redis will publish
             const {roomId, message} = userMessage.payload;
             if (!message) return;
 
