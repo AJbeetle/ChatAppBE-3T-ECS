@@ -35,6 +35,23 @@ let userCount = 0;
 
 let sck:Record<string, WebSocket[]> = {}; 
 
+// Redis Subscriber handler : distributed broadcast point
+sub.on("message", (channel, message) => {
+  let data;
+  try {
+    data = JSON.parse(message);
+  } catch {
+    return;
+  }
+  const sockets = sck[channel];
+    
+  if (!sockets) return;
+    
+  sockets.forEach((socket) => {
+    socket.send(data.message);
+  });
+});
+
 interface userMessage {
     type : string,
     payload : {
@@ -48,23 +65,32 @@ interface userMessage {
 
 wss.on("connection",function(socket){
     socket.send("WebSocket connection established");
-    socket.on("message",(event)=>{
+    socket.on("message",async (event)=>{
         //event here now is stringified JSON object, having types now check if user wants to chat or join the room
         // check for the message type in JSON Object by unstringifying it
-        const userMessage:userMessage = JSON.parse(event.toString());
+
+        let userMessage: userMessage;
+
+        try {
+          userMessage = JSON.parse(event.toString());
+        } catch {
+          return;
+        }
+
         if(userMessage.type == "join"){
             let roomId = userMessage.payload.roomId as string;
             // let arr = sck[roomId];
             // sck[roomId] = [...arr, socket];
-            if(sck[roomId] == undefined){
-                sck[roomId] = [];
+
+            if (!sck[roomId]) {
+              sck[roomId] = [];
+              // first user in this container → subscribe Redis
+              await sub.subscribe(roomId);
             }
-            else{
-                sck[roomId] = [...sck[roomId]];
-            }
-            sck[roomId].push(socket)
+            sck[roomId].push(socket);
         }
         else if(userMessage.type == "chat"){
+            /*
             let roomId = userMessage.payload.roomId as string;
             let arr:WebSocket[] = sck[roomId];
             // console.log(arr);
@@ -77,6 +103,33 @@ wss.on("connection",function(socket){
                     childSocket.send(userMessage.payload?.message);
                 }
             })
+                */
+
+// Now, server doesn't broadcast directly redis will publish
+            const {roomId, message} = userMessage.payload;
+            if (!message) return;
+
+            await pub.publish(
+              roomId,
+              JSON.stringify({
+                roomId,
+                message
+              })
+            );
         }
     })
+
+    // Adding disconnect cleanup : prevents redis channel explosion
+    socket.on("close", async () => {
+      for (const roomId in sck) {
+        sck[roomId] = sck[roomId].filter((s) => s !== socket);
+
+        if (sck[roomId].length === 0) {
+          delete sck[roomId];
+          await sub.unsubscribe(roomId);
+        }
+      }
+    });
 })
+
+
