@@ -12,3 +12,7 @@ app.get("/rooms/:roomId/messages", async (req, res) => {
     res.status(500).json({ error: "failed to fetch messages" });
   }
 });
+
+app.get("/", async (req, res) => {
+  res.status(200).json({message : "health Check passed"})
+})
